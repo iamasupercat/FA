@@ -5,6 +5,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.common.keys import Keys
 import time
 
 # ==========================================
@@ -90,9 +91,12 @@ def run_macro():
             input_box.click() 
             input_box.send_keys(str(car_num))
 
-            # 2. 조회 버튼 클릭
-            confirm_btn = driver.find_element(By.CSS_SELECTOR, BUTTON_SELECTOR)
-            driver.execute_script("arguments[0].click();", confirm_btn)
+            # 2. 검색버튼 대신 엔터키 입력
+            input_box.send_keys(Keys.ENTER)
+
+            # (혹시 엔터가 안 먹히면 아래 주석 풀고 버튼 클릭 시도)
+            # confirm_btn = driver.find_element(By.XPATH, "//*[contains(text(), '조회')]")
+            # driver.execute_script("arguments[0].click();", confirm_btn)
             
             # [수정 2] 여러 줄의 결과 가져오기
             # 조회 후 데이터가 뜰 때까지 잠시 대기
