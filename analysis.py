@@ -26,7 +26,7 @@ def run_button_detective():
         print("\n" + "="*60)
         print("🕵️ [조회 버튼 범인 찾기] 🕵️")
         print("1. 브라우저에서 직접 로그인하고 메뉴를 이동해주세요.")
-        print("2. '조회' 버튼이 눈에 보이면...")
+        print("2. '검색' 버튼이 눈에 보이면...")
         input("👉 여기(터미널)를 클릭하고 엔터(Enter)를 누르세요! 수사를 시작합니다.")
         print("="*60 + "\n")
 
@@ -37,7 +37,7 @@ def run_button_detective():
         
         # 전략 1: "조회"라는 텍스트를 가진 모든 요소
         try:
-            candidates.extend(driver.find_elements(By.XPATH, "//*[contains(text(), '조회')]"))
+            candidates.extend(driver.find_elements(By.XPATH, "//*[contains(text(), '검색')]"))
         except: pass
         
         # 전략 2: ID나 Class에 'btn', 'search'가 들어간 요소 (Nexacro 버튼 패턴)
