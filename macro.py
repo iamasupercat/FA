@@ -8,6 +8,7 @@ from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.action_chains import ActionChains # [추가] 마우스 이동용
 import time
+import random
 
 # ==========================================
 # 1. 사용자 설정 영역
@@ -87,32 +88,30 @@ def run_macro():
             input_box.click()
             input_box.clear()
             input_box.send_keys(str(car_num))
-            time.sleep(0.1)
+            time.sleep(random.uniform(0.1, 0.5))  # 랜덤 딜레이: 0.1~0.5초
 
             # [중요] 입력 확정을 위해 빈 공간(body) 한번 클릭
             # (커서가 입력창에 남아있으면 조회가 안 되는 경우가 있음)
             driver.find_element(By.TAG_NAME, 'body').click()
-            time.sleep(0.2)
+            time.sleep(random.uniform(0.2, 0.8))  # 랜덤 딜레이: 0.2~0.8초
 
-            # 2. 버튼 찾기 및 강력 클릭 시도 🥊
+            # 2. 버튼 찾기 및 클릭 시도 (JS 강제 클릭)
             try:
                 # 2-1. 버튼 요소 찾기
                 search_btn = driver.find_element(By.CSS_SELECTOR, BUTTON_SELECTOR)
                 
-                # 2-2. 마우스 이동 후 클릭 (ActionChains) - 사람이 누르는 척
-                action.move_to_element(search_btn).click().perform()
-                
-                # 2-3. 혹시 안 눌렸을까봐 자바스크립트로 확인 사살
+                # 마우스 이동이고 뭐고 다 생략하고, 브라우저 엔진에 직접 클릭 명령 1회 전송
                 driver.execute_script("arguments[0].click();", search_btn)
+                print(" -> JS 강제 클릭 완료")
                 
             except Exception as e:
-                # ID로 못 찾거나 실패하면 '조회' 글자로 찾아서 누르기
-                print(" -> ID 클릭 실패, 텍스트로 시도...")
+                # 실패 시 예외 처리
+                print(" -> Selector 실패, 텍스트로 조회 시도")
                 xpath_btn = driver.find_element(By.XPATH, "//*[contains(text(), '조회')]")
                 driver.execute_script("arguments[0].click();", xpath_btn)
-
+                
             # 3. 결과 수집
-            time.sleep(2.0) # 조회 로딩 대기 (충분히)
+            time.sleep(random.uniform(1.5, 3.0))  # 랜덤 딜레이: 1.5~3.0초 (조회 로딩 대기)
             
             results = driver.find_elements(By.CSS_SELECTOR, RESULT_TEXT_SELECTOR)
             
@@ -126,6 +125,9 @@ def run_macro():
             else:
                 print(f"[{car_num}] 조회 결과 없음 (혹은 버튼 안 눌림)")
                 df.at[index, COL_REG_DATE] = "내역없음"
+            
+            # 다음 조회 전 랜덤 딜레이 (매크로 탐지 방지)
+            time.sleep(random.uniform(0.5, 1.5))
 
         except Exception as e:
             print(f"[{car_num}] 에러: {e}")
