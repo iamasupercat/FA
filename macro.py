@@ -6,7 +6,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.common.action_chains import ActionChains # [추가] 마우스 이동용
+from selenium.webdriver.common.action_chains import ActionChains
 import time
 import random
 
@@ -16,13 +16,10 @@ import random
 EXCEL_FILE_PATH = '카히스토리관리_20251230112324.xlsx' 
 URL = 'https://gaos.glovis.net'
 
-# 입력창
+# 입력창 Selector
 INPUT_BOX_SELECTOR = "input[id*='CARNO']"
 
-# [핵심] 조회 버튼 (찾아내신 ID)
-BUTTON_SELECTOR = "div[id*='searchBtn']"
-
-# 결과 텍스트
+# 결과 텍스트 Selector
 RESULT_TEXT_SELECTOR = "div[id*='Grid01'][id*='_5:text']"
 
 COL_CAR_NUM = '차량번호'
@@ -46,7 +43,9 @@ def run_macro():
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
     driver.get(URL)
     wait = WebDriverWait(driver, 15)
-    action = ActionChains(driver) # 마우스 조작 도구 준비
+    
+    # ActionChains는 마우스 이동용으로만 준비 (클릭용 아님)
+    action = ActionChains(driver)
 
     try:
         # =======================================================
@@ -60,7 +59,6 @@ def run_macro():
         input("👉 준비되셨으면 엔터(Enter)를 누르세요!")
         print("="*60 + "\n")
         
-        # 입력창 찾기 확인
         try:
             input_box = wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, INPUT_BOX_SELECTOR)))
             print(f" -> 입력창 찾기 성공!")
@@ -88,55 +86,56 @@ def run_macro():
             input_box.click()
             input_box.clear()
             input_box.send_keys(str(car_num))
-            time.sleep(random.uniform(0.1, 0.5))  # 랜덤 딜레이: 0.1~0.5초
+            time.sleep(random.uniform(0.3, 0.7)) # 입력 후 잠시 대기
 
-            # [중요] 입력 확정을 위해 빈 공간(body) 한번 클릭
-            # (커서가 입력창에 남아있으면 조회가 안 되는 경우가 있음)
+            # [중요] 입력 확정을 위해 빈 공간(body) 클릭
             driver.find_element(By.TAG_NAME, 'body').click()
-            time.sleep(random.uniform(0.2, 0.8))  # 랜덤 딜레이: 0.2~0.8초
+            time.sleep(random.uniform(0.2, 0.5)) 
 
-            # 2. 버튼 찾기 및 클릭 시도 (JS 강제 클릭)
+            # 2. 버튼 클릭 (부모 요소 타겟팅 + JS 1회 클릭)
             try:
-                # 1. 화면 전체에서 '검색'이라는 글자가 딱! 들어있는 요소 찾기
-                # (사진 속의 <div ...>검색</div> 를 정확히 찾아냅니다)
-                search_btn_text = driver.find_element(By.XPATH, "//*[text()='검색']")
+                # (1) '검색' 글자를 가진 요소를 먼저 찾습니다.
+                text_element = driver.find_element(By.XPATH, "//*[text()='검색']")
                 
-                # 2. 찾은 글자를 클릭 (자바스크립트 강제 클릭 사용)
-                driver.execute_script("arguments[0].click();", search_btn_text)
-                print(" -> '검색' 텍스트 클릭 성공!")
+                # (2) 그 텍스트의 '바로 위 부모(버튼 상자)'를 찾습니다.
+                # XPath에서 '/..' 는 '내 부모'를 뜻합니다.
+                parent_btn = text_element.find_element(By.XPATH, "./..")
                 
-                # 3. 클릭 후 잠시 대기 (서버가 응답할 시간 주기)
-                time.sleep(1)
+                # (3) 부모 버튼에 JS로 클릭 명령 1회 전송 (서버 부하 최소화)
+                driver.execute_script("arguments[0].click();", parent_btn)
+                print(" -> 검색 버튼(부모 요소) 클릭 완료")
+                
+                # (4) [필수] 클릭 직후 서버가 반응할 시간을 충분히 줍니다.
+                time.sleep(1.0) 
                 
             except Exception as e:
-                print(f" -> 클릭 실패: {e}")
+                print(f" -> 버튼 클릭 실패: {e}")
                 
-            # 3. 결과 수집
-            time.sleep(random.uniform(1.5, 3.0))  # 랜덤 딜레이: 1.5~3.0초 (조회 로딩 대기)
+            # 3. 결과 수집 (로딩 대기 포함)
+            # 서버 응답 시간에 따라 이 시간을 조절하세요 (기본 1.5~3.0초)
+            time.sleep(random.uniform(1.5, 3.0))
             
             results = driver.find_elements(By.CSS_SELECTOR, RESULT_TEXT_SELECTOR)
             
             if len(results) > 0:
-                # 텍스트 가져오기
                 text_list = [r.text for r in results if r.text.strip() != ""]
                 full_text = "\n".join(text_list)
-                
                 df.at[index, COL_REG_DATE] = full_text
                 print(f"[{car_num}] 성공! ({len(text_list)}행)")
             else:
-                print(f"[{car_num}] 조회 결과 없음 (혹은 버튼 안 눌림)")
+                print(f"[{car_num}] 결과 없음 (혹은 로딩 지연)")
                 df.at[index, COL_REG_DATE] = "내역없음"
             
-            # 다음 조회 전 랜덤 딜레이 (매크로 탐지 방지)
-            time.sleep(random.uniform(0.5, 1.5))
+            # 다음 차례 넘어가기 전 안전 딜레이 (서버 보호)
+            time.sleep(random.uniform(0.5, 1.0))
 
         except Exception as e:
-            print(f"[{car_num}] 에러: {e}")
+            print(f"[{car_num}] 에러 발생: {e}")
             df.at[index, COL_REG_DATE] = "에러"
 
     save_name = '결과포함_' + EXCEL_FILE_PATH
     df.to_excel(save_name, index=False)
-    print(f"\n✅ 끝! '{save_name}' 저장 완료.")
+    print(f"\n✅ 작업 종료. '{save_name}' 파일을 확인하세요.")
     driver.quit()
 
 if __name__ == "__main__":
