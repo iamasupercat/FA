@@ -17,7 +17,7 @@ EXCEL_FILE_PATH = '카히스토리관리_20251230112324.xlsx'
 URL = 'https://gaos.glovis.net'
 
 INPUT_BOX_SELECTOR = "input[id*='CARNO']"
-# 결과 수집은 이제 ID 패턴으로 루프를 돌리므로 이 SELECTOR는 쓰지 않습니다.
+# 결과 수집은 ID 패턴 반복문을 사용하므로 별도의 선택자는 필요 없습니다.
 
 COL_CAR_NUM = '차량번호'
 COL_REG_DATE = '최초등록일'
@@ -32,17 +32,17 @@ def run_macro():
         return
 
     # ---------------------------------------------------------
-    # [수정됨] 화면 미표시 문제 해결을 위해 옵션 최소화
+    # 화면 미표시 문제 해결을 위한 옵션 설정 (최소화)
     # ---------------------------------------------------------
     chrome_options = Options()
     chrome_options.add_argument('--start-maximized')  # 창 최대화
     
-    # 봇 탐지 방지 (로그인 차단 막기 위해 이건 유지하는 게 좋습니다)
+    # 봇 탐지 방지 (로그인 차단 방지용)
     chrome_options.add_argument("disable-blink-features=AutomationControlled")
     chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
     chrome_options.add_experimental_option("useAutomationExtension", False)
     
-    # ※ no-sandbox, disable-gpu 등은 모두 삭제했습니다.
+    # ※ no-sandbox 등의 옵션은 화면이 안 뜨는 문제를 방지하기 위해 제거함
 
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
     driver.get(URL)
@@ -79,26 +79,30 @@ def run_macro():
         try:
             # 1. 입력창에 값 넣기
             input_box = driver.find_element(By.CSS_SELECTOR, INPUT_BOX_SELECTOR)
+            
+            # JS로 기존 값 깔끔하게 비우기
             driver.execute_script("arguments[0].value = '';", input_box)
             input_box.click()
             input_box.send_keys(str(car_num))
             time.sleep(random.uniform(0.3, 0.5))
 
+            # 빈 공간 클릭 (Focus Out)
             driver.find_element(By.TAG_NAME, 'body').click()
             time.sleep(random.uniform(0.2, 0.5)) 
 
             # 2. 버튼 클릭 (2회 반복)
             try:
+                # '검색' 텍스트를 가진 요소의 부모(버튼) 찾기
                 text_element = driver.find_element(By.XPATH, "//*[text()='검색']")
                 parent_btn = text_element.find_element(By.XPATH, "./..")
                 
                 print(f" -> [클릭 시도] 버튼 발견")
 
                 for i in range(2):
-                    # ActionChains로 강력 클릭
+                    # ActionChains로 클릭 (마우스 이동 후 클릭)
                     action.move_to_element(parent_btn).click().perform()
                     
-                    # JS 이벤트도 같이 발송 (보험용)
+                    # JS 이벤트 발송 (보험용)
                     driver.execute_script("""
                         var btn = arguments[0];
                         var event = new MouseEvent('click', {
@@ -116,33 +120,38 @@ def run_macro():
                 print(f" -> 버튼 조작 실패: {e}")
                 
             # =================================================================
-            # 3. 결과 수집 (ID 패턴 반복문 적용)
+            # 3. [요청 반영] 결과 수집 (ID 패턴 반복문 적용)
             # =================================================================
             time.sleep(random.uniform(1.0, 2.0))
             
             collected_texts = []
-            idx = 0  # 0번부터 시작
+            idx = 0  # 0번부터 시작 (gridrow_0, cell_0)
             
             while True:
-                # 넥사크로 ID 패턴 (gridrow_0...cell_0_5)
+                # 넥사크로 ID 패턴에 맞춰 동적으로 ID 생성
+                # 예: Grid01_00_01_00.body.gridrow_0.cell_0_5
                 target_id = f"Grid01_00_01_00.body.gridrow_{idx}.cell_{idx}_5"
                 
+                # find_elements(복수형)를 사용: 요소가 없으면 에러 대신 빈 리스트 반환
                 rows = driver.find_elements(By.ID, target_id)
                 
                 if not rows:
-                    break # 더 이상 없으면 종료
+                    # 더 이상 해당 ID의 요소가 없으면 루프 종료
+                    break
                 
+                # 텍스트 추출
                 text = rows[0].text.strip()
                 if text:
                     collected_texts.append(text)
                 
+                # 다음 행 번호로 증가 (0 -> 1 -> 2 ...)
                 idx += 1
             
             # 수집된 결과 저장
             if collected_texts:
                 full_text = "\n".join(collected_texts)
                 df.at[index, COL_REG_DATE] = full_text
-                print(f"[{car_num}] 성공! (총 {idx}건 발견)")
+                print(f"[{car_num}] 성공! (총 {idx}행 발견)")
             else:
                 print(f"[{car_num}] 결과 없음 (행 발견 못함)")
                 df.at[index, COL_REG_DATE] = "내역없음"
