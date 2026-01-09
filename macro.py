@@ -97,18 +97,19 @@ def run_macro():
 
             # 2. 버튼 찾기 및 클릭 시도 (JS 강제 클릭)
             try:
-                # 2-1. 버튼 요소 찾기
-                search_btn = driver.find_element(By.CSS_SELECTOR, BUTTON_SELECTOR)
+                # 1. 화면 전체에서 '검색'이라는 글자가 딱! 들어있는 요소 찾기
+                # (사진 속의 <div ...>검색</div> 를 정확히 찾아냅니다)
+                search_btn_text = driver.find_element(By.XPATH, "//*[text()='검색']")
                 
-                # 마우스 이동이고 뭐고 다 생략하고, 브라우저 엔진에 직접 클릭 명령 1회 전송
-                driver.execute_script("arguments[0].click();", search_btn)
-                print(" -> JS 강제 클릭 완료")
+                # 2. 찾은 글자를 클릭 (자바스크립트 강제 클릭 사용)
+                driver.execute_script("arguments[0].click();", search_btn_text)
+                print(" -> '검색' 텍스트 클릭 성공!")
+                
+                # 3. 클릭 후 잠시 대기 (서버가 응답할 시간 주기)
+                time.sleep(1)
                 
             except Exception as e:
-                # 실패 시 예외 처리
-                print(" -> Selector 실패, 텍스트로 조회 시도")
-                xpath_btn = driver.find_element(By.XPATH, "//*[contains(text(), '조회')]")
-                driver.execute_script("arguments[0].click();", xpath_btn)
+                print(f" -> 클릭 실패: {e}")
                 
             # 3. 결과 수집
             time.sleep(random.uniform(1.5, 3.0))  # 랜덤 딜레이: 1.5~3.0초 (조회 로딩 대기)
